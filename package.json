@@ -1,0 +1,26 @@
+{
+  "name": "cookibooks-(copia-1)",
+  "version": "1.0.0",
+  "description": "Tienda de libros online con backend Node.js/Express/Sequelize y frontend React/Vite/Tailwind.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm start --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start": "concurrently \"npm start --prefix backend\" \"npm start --prefix frontend\""
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yagogo39/Libreria_CookiBooks.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Yagogo39/Libreria_CookiBooks/issues"
+  },
+  "homepage": "https://github.com/Yagogo39/Libreria_CookiBooks#readme",
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
