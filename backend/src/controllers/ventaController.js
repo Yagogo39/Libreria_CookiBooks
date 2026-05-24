@@ -2,69 +2,85 @@ const { sequelize } = require('../config/db');
 const Libro = require('../models/Libro');
 const Cliente = require('../models/Cliente');
 const Pedido = require('../models/pedido');
-const { enviarCorreoCompra } = require('../utils/mailer');
+const DetallePedido = require('../models/DetallePedido');
+const { enviarCotizacion } = require('../utils/mailer');
 
 const realizarVenta = async (req, res) => {
-    const t = await sequelize.transaction(); // Iniciamos transacción
-    
+    const t = await sequelize.transaction();
     try {
-        const { nombre, correo, carrito } = req.body; // carrito es un array de { id_libro, cantidad }
+        const { nombre, correo, carrito } = req.body;
 
-        // 1. Crear o buscar al cliente (como no hay login, lo identificamos por nombre/correo)
-        const [cliente] = await Cliente.findOrCreate({
-            where: { nombre_apellido: nombre },
-            defaults: { calle: 'Venta Mostrador' },
-            transaction: t
-        });
+        if (!correo) throw new Error('El correo es requerido para enviar la cotización');
+        if (!carrito || carrito.length === 0) throw new Error('El carrito está vacío');
 
         let totalVenta = 0;
-        const detallesParaCorreo = [];
+        const productosParaCorreo = [];
 
-        // 2. Validar stock y calcular total
+        // Validar stock
         for (const item of carrito) {
             const libro = await Libro.findByPk(item.id_libro, { transaction: t });
-
             if (!libro) throw new Error(`El libro con ID ${item.id_libro} no existe`);
-            
-            // Lógica de Stock Máximo/Mínimo y Negativos
-            if (libro.existencias < item.cantidad) {
-                throw new Error(`Stock insuficiente para: ${libro.nombre}`);
-            }
+            if (libro.existencias < item.cantidad) throw new Error(`Stock insuficiente para: ${libro.nombre}`);
 
-            // Descontar stock
             libro.existencias -= item.cantidad;
             await libro.save({ transaction: t });
 
-            totalVenta += libro.precio * item.cantidad;
-            detallesParaCorreo.push({ nombre: libro.nombre, cantidad: item.cantidad });
+            totalVenta += parseFloat(libro.precio) * item.cantidad;
+            productosParaCorreo.push({
+                nombre: libro.nombre,
+                cantidad: item.cantidad,
+                precio: libro.precio
+            });
         }
 
-        // 3. Crear el Pedido
-        const nuevoPedido = await Pedido.create({
+        // Crear cliente
+        const [cliente] = await Cliente.findOrCreate({
+            where: { nombre_apellido: nombre },
+            defaults: { correo, calle: 'Venta Mostrador' },
+            transaction: t
+        });
+
+        // Calcular fecha expiración (7 días)
+        const hoy = new Date();
+        const expiracion = new Date(hoy);
+        expiracion.setDate(expiracion.getDate() + 7);
+
+        // Crear pedido
+        const totalConIva = req.body.totalConIva || parseFloat((totalVenta * 1.16).toFixed(2));
+        const pedido = await Pedido.create({
             id_cliente: cliente.id_cliente,
-            Total: totalVenta,
-            fechaIncio: new Date()
+            total: totalConIva,
+            fechainicio: hoy,
+            fechaexpiracion: expiracion
         }, { transaction: t });
 
-        // 4. Confirmar todo en la BD
+        // Crear detalles del pedido
+        for (const item of carrito) {
+            const libro = await Libro.findByPk(item.id_libro, { transaction: t });
+            await DetallePedido.create({
+                id_pedido: pedido.id_pedido,
+                id_libro: item.id_libro,
+                cantidad: item.cantidad,
+                precio_unitario: libro.precio
+            }, { transaction: t });
+        }
+
         await t.commit();
 
-        // 5. Enviar correo (fuera de la transacción para no retrasar la BD)
-        enviarCorreoCompra(correo, nombre, totalVenta, detallesParaCorreo)
-            .catch(err => console.error("Error enviando correo:", err));
+        // Enviar cotización
+        enviarCotizacion(correo, nombre, totalVenta, productosParaCorreo)
+            .then(() => console.log(`✅ Cotización enviada a ${correo}`))
+            .catch(err => console.error('❌ Error enviando cotización:', err.message));
 
         res.status(201).json({
             ok: true,
-            msg: '¡Compra realizada con éxito!',
-            pedidoId: nuevoPedido.id_pedido
+            msg: `¡Cotización enviada a ${correo}!`,
+            total: totalVenta
         });
 
     } catch (error) {
-        await t.rollback(); // Si algo salió mal, deshacemos los cambios en el stock
-        res.status(400).json({
-            ok: false,
-            msg: error.message
-        });
+        await t.rollback();
+        res.status(400).json({ ok: false, msg: error.message });
     }
 };
 

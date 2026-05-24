@@ -5,4 +5,4 @@ const router = Router();
 
 router.post('/compra', realizarVenta);
 
-module.exports.router = router;
+module.exports = router;

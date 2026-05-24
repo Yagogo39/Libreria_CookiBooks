@@ -1,5 +1,18 @@
+# Dependencias
 node_modules/
-**/node_modules/
+*/node_modules/
+
+# Variables de entorno (nunca subir esto)
 .env
-**/dist/
+*/.env
+
+# Build del frontend
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
 .DS_Store
+Thumbs.db

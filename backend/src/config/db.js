@@ -7,7 +7,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
 
     //? Confifuración para servidor externo
     dialectOptions: {
-        conneectTimeout: 60000, // Tiempo de espera para la conexión (en milisegundos)
+        connectTimeout: 60000, // Tiempo de espera para la conexión (en milisegundos)
     },
 
     pool: {
