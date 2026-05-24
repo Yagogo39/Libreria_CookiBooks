@@ -46,3 +46,7 @@ npm run dev
 
 ## Acceso admin
 Doble clic en "CookiBooks" del footer → ingresar PIN
+
+
+Si quieren ya le dan npm run dev desde la raiz y deberia de funcionar, sino, siganle por separado jaja
+
